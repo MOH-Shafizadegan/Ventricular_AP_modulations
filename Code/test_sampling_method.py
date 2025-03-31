@@ -12,13 +12,13 @@ def ortho_score(samples):
     return ortho_score
 
 # Setting the output directory
-output_file_path = "outputs/test"
+output_file_path = "outputs/test_sampling"
 if not os.path.exists(output_file_path):
     os.makedirs(output_file_path)
 
-# Define the problem: 2 parameters in [0,1] for easy visualization
+# Define parameters
 num_params = 2
-num_samples = 300  # Keep it the same for all methods for comparison
+num_samples = 300
 
 # Sobol Sampling (Variance-Based)
 problem = {
@@ -58,28 +58,10 @@ def plot_samples(samples, title, ax):
 # Create subplots
 fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-plot_samples(sobol_samples, "Sobol Sampling", axes[0])
-plot_samples(qmc_sobol_samples, "QMC Sobol Sampling", axes[1])
-plot_samples(lhs_samples, "Latin Hypercube Sampling", axes[2])
+plot_samples(sobol_samples, f"Sobol - orthogonality = {ortho_score(sobol_samples):.5f}", axes[0])
+plot_samples(qmc_sobol_samples, f"QMC Sobol - orthogonality = {ortho_score(qmc_sobol_samples):.5f}", axes[1])
+plot_samples(lhs_samples, f"Latin Hypercube - orthogonality = {ortho_score(lhs_samples):.5f}", axes[2])
 
 plt.tight_layout()
 plt.savefig(output_file_path + "/scatter.png")
-plt.clf()
-
-# Pairplot comparison
-df_sobol = {f'x{i+1}': sobol_samples[:, i] for i in range(num_params)}
-df_qmc_sobol = {f'x{i+1}': qmc_sobol_samples[:, i] for i in range(num_params)}
-df_lhs = {f'x{i+1}': lhs_samples[:, i] for i in range(num_params)}
-
-# Convert to DataFrames for Seaborn
-import pandas as pd
-df_sobol = pd.DataFrame(df_sobol)
-df_qmc_sobol = pd.DataFrame(df_qmc_sobol)
-df_lhs = pd.DataFrame(df_lhs)
-
-# Pairwise comparison plots
-sns.pairplot(df_sobol).fig.suptitle("Sobol Sampling - Pairwise Distribution", y=1.02)
-sns.pairplot(df_qmc_sobol).fig.suptitle("QMC Sobol Sampling - Pairwise Distribution", y=1.02)
-sns.pairplot(df_lhs).fig.suptitle("Latin Hypercube Sampling - Pairwise Distribution", y=1.02)
-plt.savefig(output_file_path + "/pair_plot.png")
 plt.clf()
