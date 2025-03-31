@@ -6,6 +6,7 @@ from Functions.OpenCor_Py.opencor_helper import SimulationHelper
 import matplotlib
 import matplotlib.pyplot as plt
 from SALib.sample import latin
+from scipy.stats import qmc
 import time
 matplotlib.use('Agg')
 from mpl_toolkits.mplot3d import Axes3D
@@ -33,7 +34,10 @@ working_dir = os.path.join(os.path.dirname(__file__))
 model_path = os.path.join(working_dir, "Models/ToRORd_dynCl_endo.cellml")
 
 # Setting the output directory
-output_file_path = "outputs/Single_param_analysis"
+output_type = 'ADP90'
+repolarization_level = int(re.search(r'\d+', output_type).group())
+
+output_file_path = "outputs/Single_param_analysis/" + output_type
 if not os.path.exists(output_file_path):
     os.makedirs(output_file_path)
 
@@ -42,6 +46,7 @@ pre_time = 0
 sim_time = 1000
 dt = 1
 n_mem_plot = 5
+sample_type = 'qmc'
 
 # Create simulator object
 sim_object = SimulationHelper(model_path, dt, sim_time, solver_info={'MaximumStep':0.001, 'MaximumNumberOfSteps':500000}, pre_time=pre_time)
@@ -57,8 +62,16 @@ problem = {
     'names': param_names,
     'bounds': list(zip(param_vals_mins, param_vals_maxs))
 }
-num_samples = 200
-samples = latin.sample(problem, num_samples)
+num_samples = 100
+
+if sample_type == "lhs":
+    samples = latin.sample(problem, num_samples)
+
+elif sample_type == "qmc":
+    sampler = qmc.Sobol(d=problem['num_vars'], scramble=True)  # Scrambled Sobol' for better uniformity
+    qmc_samples = sampler.random(num_samples)
+    samples = qmc.scale(qmc_samples, [b[0] for b in problem['bounds']], [b[1] for b in problem['bounds']])
+
 
 output_names = ['membrane/v']
 
@@ -66,7 +79,7 @@ output_names = ['membrane/v']
 init_param_vals = sim_object.get_init_param_vals(param_names)
 y, t = run_and_get_results(init_param_vals)
 orig_v = np.squeeze(y)
-orig_ADP90 = calculate_apd(t, orig_v, 90, depolarization_threshold=-20)
+orig_ADP90 = calculate_apd(t, orig_v, repolarization_level, depolarization_threshold=-20)
 
 
 for i, param in enumerate(param_names):
@@ -83,7 +96,7 @@ for i, param in enumerate(param_names):
         y, t = run_and_get_results(current_param_val)
         v = np.squeeze(y)
         mem_Vs.append(v)
-        APD90s.append(calculate_apd(t, v, 90, depolarization_threshold=-20))
+        APD90s.append(calculate_apd(t, v, repolarization_level, depolarization_threshold=-20))
 
         print(f"Param: {str(param)} - Iteration {s+1}/{len(samples)}.")
 
@@ -122,18 +135,19 @@ for i, param in enumerate(param_names):
     y_pred = model.predict(x_reshape)
 
     # scatter plot
-    fig = plt.figure()
+    fig = plt.figure(figsize=(16, 9))
     init_x_norm = (init_param_vals[i] - x_min) / (x_max - x_min)
     init_y_norm = (orig_ADP90 - y_min) / (y_max - y_min)
     plt.scatter(init_x_norm, init_y_norm, c='black', marker='*')
     plt.scatter(x_norm, y_norm, c='r', marker='o')
     plt.plot(x_norm, y_pred, color='blue', label='Fitted line')
-    equation_text = f"y = {slope:.2f}x + {intercept:.2f}"
+    equation_text = f"y = {slope:.3f}x + {intercept:.3f}"
     plt.text(0.95, 0.95, equation_text, transform=plt.gca().transAxes,
              ha='right', va='top', fontsize=12, color='black')    
     plt.xlabel(param)
-    plt.ylabel('ADP 90')
-    plt.savefig(output_file_path + "/" + param_label + "_scatter.png")
+    plt.ylabel(f'ADP {repolarization_level}')
+    plt.title(f'Sampling method: {sample_type}')
+    plt.savefig(output_file_path + "/" + sample_type + "_" + param_label + "_scatter.png")
     plt.clf()
 
 
