@@ -14,6 +14,7 @@ def calculate_apd(time, voltage, repolarization_percentage, depolarization_thres
 
     # Calculate repolarization voltage level
     V_repol = RMP + (1 - repolarization_percentage / 100) * (V_peak - RMP)
+    print(V_repol)
 
     # Find the index where depolarization starts (voltage crosses the depolarization threshold)
     depolarization_indices = np.where(voltage > depolarization_threshold)[0]
