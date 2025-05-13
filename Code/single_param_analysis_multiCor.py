@@ -22,7 +22,7 @@ from tqdm import tqdm
 cfg = {
     "output_feature": 'APD90',
     "sample_type": 'qmc',
-    "num_samples": 200,
+    "num_samples": 300,
     "pre_time": 0,
     "sim_time": 800,
     "dt": 0.1,
@@ -35,8 +35,8 @@ cfg = {
 
 # Parameter definitions
 cfg["param_names"] = ['extracellular/ko', 'IKr/GKr_b', 'ICaL/PCa_b']
-cfg["param_vals_mins"] = [3, 0.002, 1.3757e-05]
 cfg["param_vals_maxs"] = [5, 0.0121, 8.3757e-05]
+cfg["param_vals_mins"] = [0.5 * val for val in cfg["param_vals_maxs"]]
 cfg["output_names"] = ['membrane/v']
 
 # Output setup
@@ -106,7 +106,7 @@ for i, param in enumerate(cfg["param_names"]):
 
     args_list = [(i, samples[s], init_param_vals) for s in range(len(samples))]
 
-    with ProcessPoolExecutor(max_workers=10) as executor:
+    with ProcessPoolExecutor(max_workers=15) as executor:
         results = list(tqdm(executor.map(simulate_single_param_change, args_list),
                             total=len(args_list), desc=f"Processing {param}"))
 
@@ -143,15 +143,16 @@ for i, param in enumerate(cfg["param_names"]):
         init_x_norm = init_param_vals[i] / x_max
         init_y_norm = orig_out_feature
 
-        plt.figure(figsize=(16, 9))
+        plt.figure(figsize=(6, 5))
         plt.scatter(init_x_norm, init_y_norm, c='black', marker='*')
         plt.scatter(x_norm, y_norm, c='r', marker='o')
         plt.plot(x_norm, y_pred, color='blue', label='Fitted line')
         equation_text = f"y = {slope:.5f}x + {intercept:.5f}"
         plt.text(0.95, 0.95, equation_text, transform=plt.gca().transAxes,
-                 ha='right', va='top', fontsize=24, color='black')
+                 ha='right', va='top', fontsize=18, color='black')
         plt.xlabel(param, fontsize=18)
         plt.ylabel(cfg["output_feature"], fontsize=18)
         plt.title(f'Sampling method: {cfg["sample_type"]}', fontsize=20)
+        plt.tick_params(axis='both', which='major', labelsize=15) # Adjust 14 to your desired size
         plt.savefig(os.path.join(output_file_path, cfg["sample_type"] + "_" + param_label + "_scatter.png"))
         plt.clf()
